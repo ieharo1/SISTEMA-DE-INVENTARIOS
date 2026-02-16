@@ -22,7 +22,9 @@ import {
   LineChart,
   Line
 } from 'recharts';
+import toast from 'react-hot-toast';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card';
 import { PageLoader } from '../components/ui/Loader';
 
@@ -31,12 +33,21 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 const DashboardPage = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { addNotification } = useAuth();
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         const { data } = await api.get('/dashboard');
         setStats(data);
+        
+        // Add notification for low stock
+        if (data.productosBajoStock > 0) {
+          addNotification({
+            titulo: 'Alerta de Stock',
+            mensaje: `Tienes ${data.productosBajoStock} productos con stock bajo`
+          });
+        }
       } catch (error) {
         console.error('Error fetching dashboard:', error);
       } finally {
@@ -44,7 +55,7 @@ const DashboardPage = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [addNotification]);
 
   if (loading) return <PageLoader />;
   if (!stats) return <div className="text-center py-12">Error al cargar datos</div>;
