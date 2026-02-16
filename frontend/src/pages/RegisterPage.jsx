@@ -58,7 +58,7 @@ const RegisterPage = () => {
   return (
     <div className="min-h-screen flex">
       {/* Left side - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 p-12 flex-col justify-between relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-purple-600 to-emerald-500 p-12 flex-col justify-between relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-20 w-72 h-72 bg-white rounded-full blur-3xl" />
           <div className="absolute bottom-20 right-20 w-96 h-96 bg-white rounded-full blur-3xl" />
@@ -67,11 +67,13 @@ const RegisterPage = () => {
         <div className="relative">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-              <Package className="w-6 h-6 text-white" />
+              <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="currentColor">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">Inventario</h1>
-              <p className="text-blue-200 text-sm">Sistema Empresarial</p>
+              <h1 className="text-2xl font-bold text-white">Inventory System</h1>
+              <p className="text-blue-200 text-sm">TST SOLUTIONS</p>
             </div>
           </div>
         </div>

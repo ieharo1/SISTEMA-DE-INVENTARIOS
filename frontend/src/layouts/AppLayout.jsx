@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
+import api from '../services/api';
 import {
   LayoutDashboard,
   Package,
@@ -17,7 +19,10 @@ import {
   Moon,
   Search,
   ChevronDown,
-  Home
+  User,
+  Bell,
+  Trash2,
+  Check
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -35,6 +40,11 @@ const navItems = [
 const AppLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark' || 
@@ -42,8 +52,21 @@ const AppLayout = () => {
     }
     return false;
   });
-  const { user, logout } = useAuth();
+  const { user, logout, notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const notificationsRef = useRef(null);
+
+  // Close notifications when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(event.target)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -54,6 +77,40 @@ const AppLayout = () => {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+  };
+
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    try {
+      const { data } = await api.get(`/products?search=${query}&limit=5`);
+      setSearchResults(data.data || []);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery) {
+      navigate(`/productos?search=${searchQuery}`);
+      setSearchOpen(false);
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  };
+
+  const handleResultClick = (productId) => {
+    navigate(`/productos?search=${searchQuery}`);
+    setSearchOpen(false);
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   return (
@@ -77,12 +134,14 @@ const AppLayout = () => {
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <Package className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-emerald-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+              <svg viewBox="0 0 24 24" className="w-6 h-6 text-white" fill="currentColor">
+                <path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+              </svg>
             </div>
             <div>
-              <h1 className="font-bold text-slate-900 dark:text-white text-sm">Inventario</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Empresarial</p>
+              <h1 className="font-bold text-slate-900 dark:text-white text-sm">Inventory System</h1>
+              <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">TST SOLUTIONS</p>
             </div>
           </div>
           <button 
@@ -118,15 +177,19 @@ const AppLayout = () => {
 
         {/* User info */}
         <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
-              {user?.nombre?.charAt(0).toUpperCase()}
-            </div>
+          <Link to="/configuracion" className="flex items-center gap-3 mb-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 p-2 -m-2 rounded-lg transition-colors">
+            {user?.foto ? (
+              <img src={user.foto} alt={user.nombre} className="w-10 h-10 rounded-full object-cover" />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0">
+                {user?.nombre?.charAt(0).toUpperCase()}
+              </div>
+            )}
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.nombre}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{user?.rol}</p>
             </div>
-          </div>
+          </Link>
           <button
             onClick={logout}
             className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -188,18 +251,136 @@ const AppLayout = () => {
               </div>
 
               {/* Search - desktop */}
-              <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700/50 rounded-lg w-64">
-                <Search className="w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Buscar..."
-                  className="bg-transparent border-none outline-none text-sm text-slate-600 dark:text-slate-300 placeholder:text-slate-400 w-full"
-                />
+              <div className="hidden md:block relative">
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700/50 rounded-lg w-64">
+                    <Search className="w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar productos..."
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      onFocus={() => setSearchOpen(true)}
+                      className="bg-transparent border-none outline-none text-sm text-slate-600 dark:text-slate-300 placeholder:text-slate-400 w-full"
+                    />
+                  </div>
+                </form>
+                
+                {/* Search dropdown */}
+                {searchOpen && searchQuery.length >= 2 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+                    {searching ? (
+                      <div className="p-4 text-center text-slate-500">Buscando...</div>
+                    ) : searchResults.length > 0 ? (
+                      <>
+                        {searchResults.map((product) => (
+                          <button
+                            key={product._id}
+                            onClick={() => handleResultClick(product._id)}
+                            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 text-left"
+                          >
+                            <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                              <Package className="w-4 h-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">{product.nombre}</p>
+                              <p className="text-xs text-slate-500">Stock: {product.stockActual}</p>
+                            </div>
+                          </button>
+                        ))}
+                        <Link
+                          to={`/productos?search=${searchQuery}`}
+                          onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
+                          className="block px-4 py-2 text-center text-sm text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-700/50 border-t border-slate-200 dark:border-slate-700"
+                        >
+                          Ver todos los resultados
+                        </Link>
+                      </>
+                    ) : (
+                      <div className="p-4 text-center text-slate-500">No se encontraron productos</div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Right side */}
             <div className="flex items-center gap-1 md:gap-2">
+              {/* Notifications */}
+              <div className="relative" ref={notificationsRef}>
+                <button
+                  onClick={() => setNotificationsOpen(!notificationsOpen)}
+                  className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 relative"
+                  title="Notificaciones"
+                >
+                  <Bell className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notifications dropdown */}
+                {notificationsOpen && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden z-50">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+                      <h3 className="font-semibold text-slate-900 dark:text-white">Notificaciones</h3>
+                      {notifications.length > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-xs text-blue-600 hover:text-blue-700"
+                        >
+                          Marcar todo leído
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-slate-500">
+                          No hay notificaciones
+                        </div>
+                      ) : (
+                        notifications.slice(0, 10).map((notif) => (
+                          <div
+                            key={notif.id}
+                            className={cn(
+                              'px-4 py-3 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer',
+                              !notif.leido && 'bg-blue-50 dark:bg-blue-900/20'
+                            )}
+                            onClick={() => markAsRead(notif.id)}
+                          >
+                            <div className="flex items-start gap-3">
+                              {!notif.leido && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
+                              )}
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-900 dark:text-white">{notif.titulo}</p>
+                                <p className="text-xs text-slate-500 mt-1">{notif.mensaje}</p>
+                                <p className="text-xs text-slate-400 mt-1">
+                                  {new Date(notif.fecha).toLocaleString('es-MX')}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    {notifications.length > 0 && (
+                      <div className="px-4 py-2 border-t border-slate-200 dark:border-slate-700">
+                        <button
+                          onClick={clearNotifications}
+                          className="text-xs text-red-600 hover:text-red-700 flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          Limpiar notificaciones
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={toggleDarkMode}
                 className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"

@@ -9,10 +9,22 @@ export const AuthProvider = ({ children }) => {
     return raw ? JSON.parse(raw) : null;
   });
 
+  const [notifications, setNotifications] = useState(() => {
+    const raw = localStorage.getItem('notifications');
+    return raw ? JSON.parse(raw) : [];
+  });
+
+  const [unreadCount, setUnreadCount] = useState(0);
+
   useEffect(() => {
     if (user) localStorage.setItem('user', JSON.stringify(user));
     else localStorage.removeItem('user');
   }, [user]);
+
+  useEffect(() => {
+    localStorage.setItem('notifications', JSON.stringify(notifications));
+    setUnreadCount(notifications.filter(n => !n.leido).length);
+  }, [notifications]);
 
   const login = async (credentials) => {
     const { data } = await api.post('/auth/login', credentials);
@@ -38,7 +50,43 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const value = useMemo(() => ({ user, login, register, logout }), [user]);
+  const addNotification = (notification) => {
+    const newNotification = {
+      id: Date.now(),
+      ...notification,
+      fecha: new Date().toISOString(),
+      leido: false
+    };
+    setNotifications(prev => [newNotification, ...prev].slice(0, 50));
+  };
+
+  const markAsRead = (id) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === id ? { ...n, leido: true } : n)
+    );
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, leido: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  const value = useMemo(() => ({ 
+    user, 
+    login, 
+    register, 
+    logout,
+    notifications,
+    unreadCount,
+    addNotification,
+    markAsRead,
+    markAllAsRead,
+    clearNotifications,
+    setUser
+  }), [user, notifications, unreadCount]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

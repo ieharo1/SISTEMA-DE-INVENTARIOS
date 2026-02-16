@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
-import { Save, User, Bell, Shield, Palette, Database, Info } from 'lucide-react';
+import { Save, User, Bell, Shield, Palette, Database, Info, Camera, Upload } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { Button, Input } from '../components/ui';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../components/ui/Card';
 
 const SettingsPage = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [activeTab, setActiveTab] = useState('perfil');
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef(null);
   
   const [profileForm, setProfileForm] = useState({
     nombre: '',
@@ -43,11 +44,49 @@ const SettingsPage = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.patch(`/users/${user._id}`, profileForm);
+      const { data } = await api.patch(`/users/${user._id}`, profileForm);
+      setUser({ ...user, ...profileForm });
+      localStorage.setItem('user', JSON.stringify({ ...user, ...profileForm }));
       toast.success('Perfil actualizado');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Error al actualizar');
     } finally {
+      setSaving(false);
+    }
+  };
+
+  const handlePhotoUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      toast.error('Selecciona una imagen válida');
+      return;
+    }
+
+    // Validar tamaño (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('La imagen debe ser menor a 2MB');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Convertir a base64
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const fotoBase64 = reader.result;
+        await api.patch(`/users/${user._id}`, { foto: fotoBase64 });
+        const updatedUser = { ...user, foto: fotoBase64 };
+        setUser(updatedUser);
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        toast.success('Foto de perfil actualizada');
+        setSaving(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      toast.error('Error al subir foto');
       setSaving(false);
     }
   };
@@ -88,30 +127,64 @@ const SettingsPage = () => {
     switch (activeTab) {
       case 'perfil':
         return (
-          <form onSubmit={handleProfileSubmit} className="space-y-4">
-            <Input
-              label="Nombre completo"
-              value={profileForm.nombre}
-              onChange={(e) => setProfileForm({ ...profileForm, nombre: e.target.value })}
-            />
-            <Input
-              label="Correo electrónico"
-              type="email"
-              value={profileForm.email}
-              onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
-            />
-            <Input
-              label="Teléfono"
-              value={profileForm.teléfono}
-              onChange={(e) => setProfileForm({ ...profileForm, teléfono: e.target.value })}
-            />
-            <div className="pt-4">
-              <Button type="submit" loading={saving}>
-                <Save className="w-4 h-4" />
-                Guardar cambios
-              </Button>
+          <div className="space-y-6">
+            {/* Photo section */}
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                {profileForm.foto || user?.foto ? (
+                  <img 
+                    src={profileForm.foto || user?.foto} 
+                    alt="Foto de perfil" 
+                    className="w-24 h-24 rounded-full object-cover border-4 border-slate-200 dark:border-slate-700"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-3xl font-bold border-4 border-slate-200 dark:border-slate-700">
+                    {user?.nombre?.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition-colors shadow-lg"
+                  title="Cambiar foto"
+                >
+                  <Camera className="w-4 h-4" />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                  className="hidden"
+                />
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Haz clic en la cámara para cambiar tu foto</p>
             </div>
-          </form>
+
+            <form onSubmit={handleProfileSubmit} className="space-y-4">
+              <Input
+                label="Nombre completo"
+                value={profileForm.nombre}
+                onChange={(e) => setProfileForm({ ...profileForm, nombre: e.target.value })}
+              />
+              <Input
+                label="Correo electrónico"
+                type="email"
+                value={profileForm.email}
+                onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+              />
+              <Input
+                label="Teléfono"
+                value={profileForm.teléfono}
+                onChange={(e) => setProfileForm({ ...profileForm, teléfono: e.target.value })}
+              />
+              <div className="pt-4">
+                <Button type="submit" loading={saving}>
+                  <Save className="w-4 h-4" />
+                  Guardar cambios
+                </Button>
+              </div>
+            </form>
+          </div>
         );
 
       case 'seguridad':
@@ -208,12 +281,16 @@ const SettingsPage = () => {
               </div>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
+                  <span className="text-slate-500">Sistema:</span>
+                  <span className="text-slate-900 dark:text-white font-medium">Inventory System by TST SOLUTIONS</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-slate-500">Versión:</span>
                   <span className="text-slate-900 dark:text-white">1.0.0</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Entorno:</span>
-                  <span className="text-slate-900 dark:text-white">Producción</span>
+                  <span className="text-slate-500">Desarrollado por:</span>
+                  <span className="text-slate-900 dark:text-white">TST SOLUTIONS</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500">Tu rol:</span>

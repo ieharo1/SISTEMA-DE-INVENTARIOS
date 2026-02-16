@@ -39,3 +39,5 @@ frontend/.env
 # Misc
 *.tgz
 .cache/
+
+nul
